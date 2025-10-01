@@ -432,7 +432,7 @@ def validate_solution(solution):
     except Exception:
         return False
 
-def generate_complete_neighborhood(solution, neighborhood_func, dist_bases_assets, max_neighbors=50):
+def generate_complete_neighborhood(solution, neighborhood_func, dist_bases_assets, max_neighbors=100):
     """Gera vizinhança limitada usando função de vizinhança."""
     valid_neighbors = []
     attempts = 0
