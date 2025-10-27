@@ -2,6 +2,7 @@ from generator import read_csv_data, generate_initial_solution
 from plot import plot_solution
 from constraints import constraints
 from vns import create_vns
+from pareto import generate_pareto_frontier
 import numpy as np
 
 def main():
@@ -81,6 +82,29 @@ def main():
     if not constraints_ok:
         print("⚠️  Constraints violadas. VNS não será executado.")
         return
+    
+    # ESCOLHA DO MODO DE OTIMIZAÇÃO
+    print("\n" + "=" * 80)
+    print("🚀 MODO DE OTIMIZAÇÃO")
+    print("=" * 80)
+    print("\n1. VNS - Otimização Única (f1 ou f2)")
+    print("2. PARETO - Fronteira de Pareto (Soma Ponderada + ε-restrito)")
+    
+    mode = input("\nEscolha o modo (1/2): ").strip()
+    
+    if mode == '2':
+        # GERAR FRONTEIRA DE PARETO
+        print("\n🎯 Gerando Fronteira de Pareto...")
+        try:
+            pareto_solutions = generate_pareto_frontier(solution, dist_bases_assets)
+            print("\n✅ Fronteira de Pareto gerada com sucesso!")
+            print(f"📊 {len(pareto_solutions)} soluções na fronteira")
+            return
+        except Exception as e:
+            print(f"❌ Erro ao gerar fronteira de Pareto: {e}")
+            import traceback
+            traceback.print_exc()
+            return
     
     # OTIMIZAÇÃO VNS
     print("\n" + "=" * 80)
