@@ -432,7 +432,7 @@ def validate_solution(solution):
     except Exception:
         return False
 
-def generate_complete_neighborhood(solution, neighborhood_func, dist_bases_assets, max_neighbors=100):
+def generate_complete_neighborhood(solution, neighborhood_func, dist_bases_assets, max_neighbors=1000):
     """Gera vizinhança limitada usando função de vizinhança."""
     valid_neighbors = []
     attempts = 0
@@ -449,10 +449,10 @@ def generate_complete_neighborhood(solution, neighborhood_func, dist_bases_asset
 
 # Lista das funções de vizinhança disponíveis
 NEIGHBORHOODS = [
-    neighborhood_swap_assets,
+    # neighborhood_swap_assets,
     neighborhood_relocate_asset,
-    neighborhood_swap_bases,
+    # neighborhood_swap_bases,
     neighborhood_relocate_base,
-    neighborhood_or_opt,
+    # neighborhood_or_opt,
     neighborhood_change_team_number
 ]

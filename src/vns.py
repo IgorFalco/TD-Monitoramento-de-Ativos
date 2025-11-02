@@ -117,7 +117,7 @@ class VNS:
     
 
     
-    def execute(self, solution_inicial, objective='f1', max_iter=10, max_time=300, 
+    def execute(self, solution_inicial, objective='f1', max_iter=100, max_time=300, 
                 k_max=5, verbose=True):
         """
         Executa o algoritmo VNS completo.
