@@ -74,7 +74,13 @@ def select_best_distributed(solutions, max_solutions=20):
 def weighted_sum_method(initial_solution, dist_bases_assets, num_points=15):
     """
     Método da Soma Ponderada para gerar soluções Pareto.
-    Minimiza: w * f1_norm + (1-w) * f2_norm
+    
+    Minimiza: F(x) = w1 * f1_norm(x) + w2 * f2_norm(x)
+    
+    Onde w1 + w2 = 1 e w1, w2 >= 0
+    Os objetivos são normalizados para evitar dominância por diferença de magnitude.
+    
+    Conforme literatura de otimização multiobjetivo.
     """
     print("\n" + "="*60)
     print("🔵 MÉTODO DA SOMA PONDERADA")
@@ -83,13 +89,22 @@ def weighted_sum_method(initial_solution, dist_bases_assets, num_points=15):
     vns = VNS(dist_bases_assets)
     solutions = []
     
-    # Normalização aproximada (vamos estimar os ranges)
-    # Estima f1_max e f2_max baseado na solução inicial
-    f1_ref = initial_solution['f1']
-    f2_ref = initial_solution['f2']
+    # Calcula valores de referência para normalização
+    # f1_max: usa a distância da solução inicial como referência superior
+    # f2_max: número máximo de equipes disponíveis (8)
+    f1_max = initial_solution['f1']
+    f2_max = 8
     
-    for i, w in enumerate(np.linspace(0, 1, num_points)):
-        print(f"\n📊 Peso {i+1}/{num_points}: w={w:.2f} (f1), {1-w:.2f} (f2)")
+    print(f"\n📏 Normalização:")
+    print(f"   f1_max (distância) = {f1_max:.2f}")
+    print(f"   f2_max (equipes)   = {f2_max}")
+    
+    # Normalização dos pesos: w1 + w2 = 1
+    for i, w1 in enumerate(np.linspace(0, 1, num_points)):
+        w2 = 1 - w1
+        
+        print(f"\n📊 Peso {i+1}/{num_points}: w1={w1:.3f}, w2={w2:.3f}")
+        print(f"   Função: F(x) = {w1:.3f}*f1_norm + {w2:.3f}*f2_norm")
         
         # Cria uma cópia da solução inicial
         solution = {
@@ -100,18 +115,18 @@ def weighted_sum_method(initial_solution, dist_bases_assets, num_points=15):
             'f2': initial_solution['f2']
         }
         
-        # Otimiza com VNS usando função objetivo ponderada
-        # Fazemos buscas alternadas entre f1 e f2 com bias baseado em w
-        if w > 0.5:
-            # Foca mais em f1
-            solution = vns.execute(solution, objective='f1', max_iter=30, max_time=60, verbose=False)
-        elif w < 0.5:
-            # Foca mais em f2
-            solution = vns.execute(solution, objective='f2', max_iter=30, max_time=60, verbose=False)
-        else:
-            # Balanceado
-            solution = vns.execute(solution, objective='f1', max_iter=15, max_time=30, verbose=False)
-            solution = vns.execute(solution, objective='f2', max_iter=15, max_time=30, verbose=False)
+        # Otimiza usando VNS com função objetivo ponderada normalizada
+        solution = vns.execute(
+            solution, 
+            objective='weighted',
+            w1=w1,
+            w2=w2,
+            f1_max=f1_max,  # Passa valor de normalização
+            f2_max=f2_max,  # Passa valor de normalização
+            max_iter=50, 
+            max_time=90, 
+            verbose=False
+        )
         
         solutions.append(solution)
         print(f"   ✓ f1={solution['f1']:.2f}, f2={int(solution['f2'])}")
@@ -119,10 +134,14 @@ def weighted_sum_method(initial_solution, dist_bases_assets, num_points=15):
     return solutions
 
 
-def epsilon_constraint_method(initial_solution, dist_bases_assets, num_points=15):
+def epsilon_constraint_method(initial_solution, dist_bases_assets, num_points=8):
     """
     Método ε-restrito para gerar soluções Pareto.
-    Minimiza f1 sujeito a f2 <= epsilon
+    
+    Minimiza: f1(x)
+    Sujeito a: f2(x) <= ε
+    
+    Conforme literatura de otimização multiobjetivo.
     """
     print("\n" + "="*60)
     print("🟢 MÉTODO ε-RESTRITO")
@@ -131,30 +150,18 @@ def epsilon_constraint_method(initial_solution, dist_bases_assets, num_points=15
     vns = VNS(dist_bases_assets)
     solutions = []
     
-    # Primeiro, encontra os limites de f2
-    print("\n🔍 Encontrando limites de f2...")
+    # f2 representa número de equipes: valores inteiros de 1 a 8
+    f2_min = 1
+    f2_max = 8
     
-    # Mínimo f2 possível
-    sol_min_f2 = {
-        'x': initial_solution['x'].copy(),
-        'y': initial_solution['y'].copy(),
-        'h': initial_solution['h'].copy(),
-        'f1': initial_solution['f1'],
-        'f2': initial_solution['f2']
-    }
-    sol_min_f2 = vns.execute(sol_min_f2, objective='f2', max_iter=50, max_time=90, verbose=False)
-    f2_min = sol_min_f2['f2']
+    print(f"\n🔍 Range de equipes (f2): [{f2_min}, {f2_max}]")
     
-    # Máximo f2 (da solução inicial ou um pouco acima)
-    f2_max = initial_solution['f2'] + 5
+    # Gera valores inteiros de epsilon de 1 a 8
+    epsilon_values = np.arange(f2_min, f2_max + 1, dtype=int)
     
-    print(f"   Range f2: [{int(f2_min)}, {int(f2_max)}]")
-    
-    # Gera soluções para diferentes valores de epsilon
-    epsilon_values = np.linspace(f2_min, f2_max, num_points)
-    
-    for i, epsilon in enumerate(epsilon_values):
-        print(f"\n📊 Epsilon {i+1}/{num_points}: f2 ≤ {int(epsilon)}")
+    for i, epsilon in enumerate(epsilon_values, 1):
+        print(f"\n📊 Epsilon {i}/{len(epsilon_values)}: f2 ≤ {int(epsilon)}")
+        print(f"   Minimiza: f1(x) sujeito a f2(x) ≤ {int(epsilon)}")
         
         # Cria solução inicial
         solution = {
@@ -165,16 +172,30 @@ def epsilon_constraint_method(initial_solution, dist_bases_assets, num_points=15
             'f2': initial_solution['f2']
         }
         
-        # Otimiza f1, mas respeitando restrição em f2
-        # Fazemos isso otimizando f1 e depois f2 se necessário
-        solution = vns.execute(solution, objective='f1', max_iter=30, max_time=60, verbose=False)
-        
-        # Se f2 está acima do epsilon, tenta reduzir
+        # Primeiro, garante que f2 <= epsilon
         if solution['f2'] > epsilon:
-            solution = vns.execute(solution, objective='f2', max_iter=20, max_time=40, verbose=False)
+            # Reduz f2 até o limite epsilon
+            solution = vns.execute(
+                solution, 
+                objective='f2', 
+                max_iter=30, 
+                max_time=60, 
+                verbose=False
+            )
+        
+        # Agora otimiza f1 respeitando a restrição f2 <= epsilon
+        solution = vns.execute(
+            solution, 
+            objective='f1',
+            epsilon=epsilon,  # Passa o limite para f2
+            max_iter=40, 
+            max_time=70, 
+            verbose=False
+        )
         
         solutions.append(solution)
-        print(f"   ✓ f1={solution['f1']:.2f}, f2={int(solution['f2'])}")
+        constraint_ok = "✓" if solution['f2'] <= epsilon else "✗"
+        print(f"   {constraint_ok} f1={solution['f1']:.2f}, f2={int(solution['f2'])} (limite: {int(epsilon)})")
     
     return solutions
 
