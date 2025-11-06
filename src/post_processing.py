@@ -36,11 +36,10 @@ def read_csv(path_folder: str, pattern_file: str) -> pd.DataFrame:
 
 if __name__ == "__main__":
     path_folder = "result" 
-    pattern_file = "fronteira_soma_*.csv" 
+    pattern_file = "fronteira_epsilon_*.csv" 
 
     final_df = read_csv(path_folder, pattern_file)
-    
-    print(final_df)
 
-    statics = final_df.agg(['min', 'mean', 'var'])
+    statics = final_df.groupby('f2_equipes')['f1_distancia'].agg(['min', 'mean', 'std'])
     print(statics)
+
