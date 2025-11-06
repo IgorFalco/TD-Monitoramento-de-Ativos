@@ -93,12 +93,11 @@ def main():
     mode = input("\nEscolha o modo (1/2): ").strip()
     
     if mode == '2':
-        # GERAR FRONTEIRA DE PARETO
-        print("\n🎯 Gerando Fronteira de Pareto...")
+        # GERAR FRONTEIRAS DE PARETO (5 execuções + overlays)
+        print("\n🎯 Gerando Fronteiras de Pareto (5 execuções + overlays)...")
         try:
-            pareto_solutions = generate_pareto_frontier(solution, dist_bases_assets)
-            print("\n✅ Fronteira de Pareto gerada com sucesso!")
-            print(f"📊 {len(pareto_solutions)} soluções na fronteira")
+            # Agora a função existente gera 5 execuções e overlays
+            generate_pareto_frontier(solution, dist_bases_assets)
             return
         except Exception as e:
             print(f"❌ Erro ao gerar fronteira de Pareto: {e}")

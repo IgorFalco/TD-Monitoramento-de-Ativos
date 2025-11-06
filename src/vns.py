@@ -15,7 +15,7 @@ class VNS:
         self.neighborhoods = NEIGHBORHOODS
         self.history = []
     
-    def local_search(self, solution, objective='f1', max_iter=1000, w1=None, w2=None, epsilon=None, f1_max=None, f2_max=8):
+    def local_search(self, solution, objective='f1', max_iter=1000, w1=None, w2=None, epsilon=None, f1_max=None, f2_max=8, f1_min=None, f2_min=None):
         """
         Busca local usando First Improvement.
         
@@ -26,20 +26,20 @@ class VNS:
             w1, w2: Pesos para função objetivo ponderada (se objective='weighted')
             epsilon: Limite para f2 no método epsilon-constraint (se fornecido)
             f1_max, f2_max: Valores para normalização na função ponderada
+            f1_min, f2_min: Valores mínimos para normalização (min–max), opcionais
         """
-        melhor_solution = self._copy_solution(solution)
-        melhorou = True
-        iteracoes = 0
+        best_solution = self._copy_solution(solution)
+        improved = True
+        iterations = 0
         
-        # print(f"    Iniciando busca local (objective: {objective})")
-        
-        while melhorou and iteracoes < max_iter:
-            melhorou = False
-            iteracoes += 1
+        while improved and iterations < max_iter:
+            improved = False
+            iterations += 1
             
             for neighborhood_func in self.neighborhoods:
-                neighbors = generate_complete_neighborhood(melhor_solution, neighborhood_func, 
-                                                         self.dist_bases_assets, max_neighbors=20)
+                neighbors = generate_complete_neighborhood(
+                    best_solution, neighborhood_func, self.dist_bases_assets, max_neighbors=20
+                )
                 
                 for neighbor in neighbors:
                     # Verifica restrição epsilon se fornecida
@@ -48,17 +48,15 @@ class VNS:
                         if neighbor['f2'] > epsilon:
                             continue
                     
-                    if self._is_better(neighbor, melhor_solution, objective, w1, w2, f1_max, f2_max):
-                        melhor_solution = self._copy_solution(neighbor)
-                        melhorou = True
-                        # print(f"      Melhoria encontrada")
-                        break
+                    if self._is_better(neighbor, best_solution, objective, w1, w2, f1_max, f2_max, f1_min, f2_min):
+                        best_solution = self._copy_solution(neighbor)
+                        improved = True
+                        break  # First Improvement
                 
-                if melhorou:
+                if improved:
                     break
         
-        # print(f"    Busca local finalizada: {iteracoes} iterações")
-        return melhor_solution
+        return best_solution
     
     def shake(self, solution, k):
         """
@@ -68,59 +66,59 @@ class VNS:
         """
 
         perturbed = self._copy_solution(solution)
-        num_bases_y, num_equipes = perturbed['y'].shape
+        num_bases_y, num_teams = perturbed['y'].shape
         
         # Encontra equipes ativas
-        equipes_ativas = []
-        for team in range(num_equipes):
+        active_teams = []
+        for team in range(num_teams):
             if np.sum(perturbed['y'][:, team]) > 0:
-                equipes_ativas.append(team)
+                active_teams.append(team)
         
-        if len(equipes_ativas) < 2:
+        if len(active_teams) < 2:
             return perturbed
         
         # Define quantas equipes trocar baseado no k
         # k=1: 1 equipe, k=2: 2 equipes, ..., até no máximo todas as equipes
-        num_equipes_trocar = min(k, len(equipes_ativas))
+        num_teams_to_swap = min(k, len(active_teams))
         
         # Seleciona quais equipes serão reorganizadas
-        equipes_para_trocar = random.sample(equipes_ativas, num_equipes_trocar)
+        teams_to_swap = random.sample(active_teams, num_teams_to_swap)
         
         # Pega as bases atuais dessas equipes
-        bases_atuais = []
-        for equipe in equipes_para_trocar:
-            base_atual = np.where(perturbed['y'][:, equipe] == 1)[0][0]
-            bases_atuais.append(base_atual)
+        current_bases = []
+        for team_idx in teams_to_swap:
+            current_base = np.where(perturbed['y'][:, team_idx] == 1)[0][0]
+            current_bases.append(current_base)
         
         # Embaralha as bases entre as equipes selecionadas
-        bases_embaralhadas = bases_atuais.copy()
-        random.shuffle(bases_embaralhadas)
+        shuffled_bases = current_bases.copy()
+        random.shuffle(shuffled_bases)
         
         # Reatribui as bases embaralhadas às equipes
-        for i, equipe in enumerate(equipes_para_trocar):
-            base_antiga = bases_atuais[i]
-            nova_base = bases_embaralhadas[i]
+        for i, team_idx in enumerate(teams_to_swap):
+            old_base = current_bases[i]
+            new_base = shuffled_bases[i]
             
-            if base_antiga != nova_base:
+            if old_base != new_base:
                 # Move equipe para nova base
-                perturbed['y'][base_antiga, equipe] = 0
-                perturbed['y'][nova_base, equipe] = 1
+                perturbed['y'][old_base, team_idx] = 0
+                perturbed['y'][new_base, team_idx] = 1
                 
                 # Move todos os ativos da equipe para a nova base
-                ativos_equipe = np.where(perturbed['h'][:, equipe] == 1)[0]
-                for ativo in ativos_equipe:
-                    perturbed['x'][ativo, base_antiga] = 0
-                    perturbed['x'][ativo, nova_base] = 1
+                team_assets = np.where(perturbed['h'][:, team_idx] == 1)[0]
+                for asset in team_assets:
+                    perturbed['x'][asset, old_base] = 0
+                    perturbed['x'][asset, new_base] = 1
         
         # Valida e recalcula objetivos
         try:
-            valid = True
+            valid_ok = True
             for constraint in constraints:
                 if not constraint(perturbed):
-                    valid = False
+                    valid_ok = False
                     break
             
-            if valid:
+            if valid_ok:
                 objective_function_1(perturbed, self.dist_bases_assets)
                 objective_function_2(perturbed)
                 return perturbed
@@ -133,13 +131,13 @@ class VNS:
     
 
     
-    def execute(self, solution_inicial, objective='f1', max_iter=100, max_time=300, 
-                k_max=5, verbose=True, w1=None, w2=None, epsilon=None, f1_max=None, f2_max=8):
+    def execute(self, initial_solution, objective='f1', max_iter=100, max_time=300, 
+                k_max=5, verbose=True, w1=None, w2=None, epsilon=None, f1_max=None, f2_max=8, f1_min=None, f2_min=None):
         """
         Executa o algoritmo VNS completo.
         
         Args:
-            solution_inicial: Solução inicial
+            initial_solution: Solução inicial
             objective: 'f1' para distância, 'f2' para número de equipes, 'weighted' para soma ponderada
             max_iter: Máximo de iterações
             max_time: Tempo limite em segundos
@@ -148,13 +146,14 @@ class VNS:
             w1, w2: Pesos para função objetivo ponderada (necessário se objective='weighted')
             epsilon: Limite para f2 no método epsilon-constraint
             f1_max, f2_max: Valores para normalização na função ponderada
+            f1_min, f2_min: Valores mínimos para normalização (min–max), opcionais
         """
         
         start_time = time.time()
-        melhor_solution = self._copy_solution(solution_inicial)
-        current_solution = self._copy_solution(solution_inicial)
+        best_solution = self._copy_solution(initial_solution)
+        current_solution = self._copy_solution(initial_solution)
         
-        iteracao = 0
+        iteration = 0
         k = 1
         
         if verbose:
@@ -167,38 +166,38 @@ class VNS:
                 print(f"Restrição: f2 <= {epsilon}")
             
             if objective == 'weighted':
-                valor_obj = objective_function_weighted(melhor_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max)
-                print(f"Solução inicial: F(x)={valor_obj:.4f} (f1={melhor_solution['f1']:.2f}, f2={melhor_solution['f2']})")
+                valor_obj = objective_function_weighted(best_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max, f1_min, f2_min)
+                print(f"Solução inicial: F(x)={valor_obj:.4f} (f1={best_solution['f1']:.2f}, f2={best_solution['f2']})")
             else:
-                print(f"Solução inicial: {objective}={melhor_solution[objective]:.2f}")
+                print(f"Solução inicial: {objective}={best_solution[objective]:.2f}")
             print(f"Limites: {max_iter} iterações, {max_time}s")
         
-        while (iteracao < max_iter and 
+        while (iteration < max_iter and 
                (time.time() - start_time) < max_time and 
                k <= k_max):
             
-            iteracao += 1
+            iteration += 1
             
-            if verbose and iteracao % 10 == 0:
-                print(f"\n--- Iteração {iteracao} (k={k}) ---")
+            if verbose and iteration % 10 == 0:
+                print(f"\n--- Iteração {iteration} (k={k}) ---")
             
             # FASE 1: Shake - gera uma solução na k-ésima vizinhança
             solution_shake = self.shake(current_solution, k)
             
             # FASE 2: Busca local
             solution_local = self.local_search(solution_shake, objective, max_iter=100, 
-                                              w1=w1, w2=w2, epsilon=epsilon, f1_max=f1_max, f2_max=f2_max)
+                                              w1=w1, w2=w2, epsilon=epsilon, f1_max=f1_max, f2_max=f2_max, f1_min=f1_min, f2_min=f2_min)
             
             # FASE 3: Aceita ou rejeita
-            if self._is_better(solution_local, melhor_solution, objective, w1, w2, f1_max, f2_max):
-                melhor_solution = self._copy_solution(solution_local)
+            if self._is_better(solution_local, best_solution, objective, w1, w2, f1_max, f2_max, f1_min, f2_min):
+                best_solution = self._copy_solution(solution_local)
                 current_solution = self._copy_solution(solution_local)
                 
                 self.history.append({
-                    'iteracao': iteracao,
+                    'iteracao': iteration,
                     'tempo': time.time() - start_time,
-                    'f1': melhor_solution['f1'],
-                    'f2': melhor_solution['f2'],
+                    'f1': best_solution['f1'],
+                    'f2': best_solution['f2'],
                     'melhoria': True
                 })
                 
@@ -206,20 +205,20 @@ class VNS:
                 
                 if verbose:
                     if objective == 'weighted':
-                        valor_obj = objective_function_weighted(melhor_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max)
-                        print(f"  *** NOVA MELHOR: F(x)={valor_obj:.4f} (f1={melhor_solution['f1']:.2f}, f2={melhor_solution['f2']}) ***")
+                        valor_obj = objective_function_weighted(best_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max, f1_min, f2_min)
+                        print(f"  *** NOVA MELHOR: F(x)={valor_obj:.4f} (f1={best_solution['f1']:.2f}, f2={best_solution['f2']}) ***")
                     else:
-                        print(f"  *** NOVA MELHOR: {objective}={melhor_solution[objective]:.2f} ***")
+                        print(f"  *** NOVA MELHOR: {objective}={best_solution[objective]:.2f} ***")
             
             else:
                 current_solution = self._copy_solution(solution_shake)
                 k += 1
                 
                 self.history.append({
-                    'iteracao': iteracao,
+                    'iteracao': iteration,
                     'tempo': time.time() - start_time,
-                    'f1': melhor_solution['f1'],
-                    'f2': melhor_solution['f2'],
+                    'f1': best_solution['f1'],
+                    'f2': best_solution['f2'],
                     'melhoria': False
                 })
         
@@ -227,25 +226,25 @@ class VNS:
         
         if verbose:
             print(f"\n=== VNS FINALIZADO ===")
-            print(f"Iterações: {iteracao}")
+            print(f"Iterações: {iteration}")
             print(f"Tempo total: {tempo_total:.2f}s")
             if objective == 'weighted':
-                valor_obj = objective_function_weighted(melhor_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max)
-                print(f"Melhor solução: F(x)={valor_obj:.4f} (f1={melhor_solution['f1']:.2f}, f2={melhor_solution['f2']})")
+                valor_obj = objective_function_weighted(best_solution, self.dist_bases_assets, w1, w2, f1_max, f2_max, f1_min, f2_min)
+                print(f"Melhor solução: F(x)={valor_obj:.4f} (f1={best_solution['f1']:.2f}, f2={best_solution['f2']})")
             else:
-                print(f"Melhor solução: {objective}={melhor_solution[objective]:.2f}")
+                print(f"Melhor solução: {objective}={best_solution[objective]:.2f}")
             
             if objective == 'f1':
-                melhoria_percentual = ((solution_inicial['f1'] - melhor_solution['f1']) / 
-                                     solution_inicial['f1']) * 100
+                melhoria_percentual = ((initial_solution['f1'] - best_solution['f1']) / 
+                                     initial_solution['f1']) * 100
                 print(f"Melhoria em f1: {melhoria_percentual:.2f}%")
             elif objective == 'f2':
-                melhoria_equipes = solution_inicial['f2'] - melhor_solution['f2']
-                print(f"Redução de equipes: {melhoria_equipes}")
+                teams_reduction = initial_solution['f2'] - best_solution['f2']
+                print(f"Redução de equipes: {teams_reduction}")
         
-        return melhor_solution
+        return best_solution
     
-    def _is_better(self, solution1, solution2, objective, w1=None, w2=None, f1_max=None, f2_max=8):
+    def _is_better(self, solution1, solution2, objective, w1=None, w2=None, f1_max=None, f2_max=8, f1_min=None, f2_min=None):
         """Verifica se solution1 é melhor que solution2."""
         if objective == 'f1':
             return solution1['f1'] < solution2['f1']
@@ -253,8 +252,8 @@ class VNS:
             return solution1['f2'] < solution2['f2']
         elif objective == 'weighted':
             # Calcula função objetivo ponderada normalizada para ambas soluções
-            f_sol1 = objective_function_weighted(solution1, self.dist_bases_assets, w1, w2, f1_max, f2_max)
-            f_sol2 = objective_function_weighted(solution2, self.dist_bases_assets, w1, w2, f1_max, f2_max)
+            f_sol1 = objective_function_weighted(solution1, self.dist_bases_assets, w1, w2, f1_max, f2_max, f1_min, f2_min)
+            f_sol2 = objective_function_weighted(solution2, self.dist_bases_assets, w1, w2, f1_max, f2_max, f1_min, f2_min)
             return f_sol1 < f_sol2
         return False
         

@@ -452,7 +452,7 @@ NEIGHBORHOODS = [
     # neighborhood_swap_assets,
     neighborhood_relocate_asset,
     # neighborhood_swap_bases,
-    neighborhood_relocate_base,
-    # neighborhood_or_opt,
+    # neighborhood_relocate_base,
+    neighborhood_or_opt,
     neighborhood_change_team_number
 ]
