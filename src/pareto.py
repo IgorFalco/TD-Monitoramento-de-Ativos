@@ -139,6 +139,9 @@ def weighted_sum_method(initial_solution, dist_bases_assets, num_points=15):
             f2_max=f2_max,
             verbose=False
         )
+        # Guarda os pesos que geraram esta solução (para salvar no CSV)
+        solution['w1'] = float(w1)
+        solution['w2'] = float(w2)
         
         solutions.append(solution)
         print(f"   ✓ f1={solution['f1']:.2f}, f2={int(solution['f2'])}")
@@ -207,13 +210,19 @@ def save_to_csv(solutions, filename):
     dirpath = os.path.dirname(filename)
     if dirpath:
         os.makedirs(dirpath, exist_ok=True)
+    # Verifica se existem pesos nas soluções
+    include_weights = any(('w1' in sol and 'w2' in sol) for sol in solutions)
     data = []
     for i, sol in enumerate(solutions, 1):
-        data.append({
+        row = {
             'solucao': i,
             'f1_distancia': sol['f1'],
             'f2_equipes': int(sol['f2'])
-        })
+        }
+        if include_weights:
+            row['peso_w1'] = float(sol.get('w1', np.nan))
+            row['peso_w2'] = float(sol.get('w2', np.nan))
+        data.append(row)
     
     df = pd.DataFrame(data)
     df.to_csv(filename, index=False, sep=';', decimal=',')
