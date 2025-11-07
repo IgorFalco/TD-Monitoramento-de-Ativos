@@ -318,64 +318,6 @@ def plot_pareto_frontier(solutions_pw, solutions_epsilon):
     print(f"📊 {png_pw}")
     print(f"📊 {png_eps}")
 
-
-# def generate_pareto_frontier(initial_solution, dist_bases_assets):
-#     """Gera duas fronteiras de Pareto distintas usando ambos os métodos."""
-    
-#     print("\n" + "="*80)
-#     print("🎯 GERAÇÃO DAS FRONTEIRAS DE PARETO")
-#     print("="*80)
-    
-#     # Método 1: Soma Ponderada
-#     solutions_pw = weighted_sum_method(initial_solution, dist_bases_assets, num_points=15)
-    
-#     # Método 2: ε-restrito
-#     solutions_epsilon = epsilon_constraint_method(initial_solution, dist_bases_assets, num_points=15)
-    
-#     # Processa cada fronteira separadamente
-#     print("\n" + "="*60)
-#     print("🔍 PROCESSANDO RESULTADOS")
-#     print("="*60)
-    
-#     print(f"\n📊 Soluções Soma Ponderada: {len(solutions_pw)}")
-#     non_dominated_pw = get_non_dominated_solutions(solutions_pw)
-#     print(f"   ✓ Não-dominadas: {len(non_dominated_pw)}")
-    
-#     print(f"\n📊 Soluções ε-restrito: {len(solutions_epsilon)}")
-#     non_dominated_eps = get_non_dominated_solutions(solutions_epsilon)
-#     print(f"   ✓ Não-dominadas: {len(non_dominated_eps)}")
-    
-#     # Seleciona as 20 mais bem distribuídas de cada fronteira
-#     final_pw = select_best_distributed(non_dominated_pw, max_solutions=20)
-#     final_eps = select_best_distributed(non_dominated_eps, max_solutions=20)
-    
-#     print(f"\n✓ Fronteira Soma Ponderada: {len(final_pw)} soluções selecionadas")
-#     print(f"✓ Fronteira ε-restrito: {len(final_eps)} soluções selecionadas")
-    
-#     # Exibe as duas fronteiras
-#     print("\n" + "="*60)
-#     print("📈 FRONTEIRA 1: SOMA PONDERADA")
-#     print("="*60)
-#     final_pw_sorted = sorted(final_pw, key=lambda s: s['f1'])
-#     print(f"\n{'#':<4} {'f1 (Dist.)':<15} {'f2 (Equipes)':<15}")
-#     print("-" * 35)
-#     for i, sol in enumerate(final_pw_sorted, 1):
-#         print(f"{i:<4} {sol['f1']:<15.2f} {int(sol['f2']):<15}")
-    
-#     print("\n" + "="*60)
-#     print("📈 FRONTEIRA 2: ε-RESTRITO")
-#     print("="*60)
-#     final_eps_sorted = sorted(final_eps, key=lambda s: s['f1'])
-#     print(f"\n{'#':<4} {'f1 (Dist.)':<15} {'f2 (Equipes)':<15}")
-#     print("-" * 35)
-#     for i, sol in enumerate(final_eps_sorted, 1):
-#         print(f"{i:<4} {sol['f1']:<15.2f} {int(sol['f2']):<15}")
-    
-#     # Plota e salva as fronteiras (imprime nomes com sufixo aleatório internamente)
-#     plot_pareto_frontier(solutions_pw, solutions_epsilon)
-        
-#     return final_pw_sorted, final_eps_sorted
-
 def generate_pareto_frontier(initial_solution, dist_bases_assets):
     """Gera 5 execuções e overlays para cada método; ≤20 pontos por execução nos overlays."""
     print("\n" + "="*80)
