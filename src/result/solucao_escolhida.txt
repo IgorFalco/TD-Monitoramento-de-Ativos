@@ -1,0 +1,33 @@
+============================================================
+SOLUÇÃO FINAL ESCOLHIDA - DECISÃO MULTICRITÉRIO
+============================================================
+
+Índice da Solução: 1
+
+--- OBJETIVOS DE OTIMIZAÇÃO ---
+f1 - Distância Total: 887.23 km
+f2 - Número de Equipes: 4
+
+Pesos do Método Soma Ponderada:
+  w1 (distância): 0.2143
+  w2 (equipes): 0.7857
+
+--- CRITÉRIOS ADICIONAIS ---
+Robustez: 0.7564 (0-1, maior é melhor)
+Confiabilidade: 0.9585 (0-1, maior é melhor)
+Risco Operacional: 1.79 (1-10, menor é melhor)
+Flexibilidade: 0.7684 (0-1, maior é melhor)
+
+--- JUSTIFICATIVA ---
+Esta solução foi escolhida após análise por dois métodos de decisão
+multicritério (AHP e PROMETHEE II), considerando:
+  - Minimização de distância e número de equipes
+  - Maximização de robustez, confiabilidade e flexibilidade
+  - Minimização de risco operacional
+
+A priorização dos critérios favoreceu confiabilidade e robustez,
+essenciais para operação em cenários com incertezas.
+
+--- RANKINGS ---
+Posição no ranking AHP: 4
+Posição no ranking PROMETHEE: 1
